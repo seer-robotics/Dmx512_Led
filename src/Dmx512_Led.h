@@ -9,6 +9,7 @@
 using namespace rbk;
 
 class Clight;
+class CSerialport;
 class Dmx512_Led:public NPluginInterface
 {
     public: 
@@ -19,11 +20,13 @@ class Dmx512_Led:public NPluginInterface
 	    void setSubscriberCallBack();
 		void messageDmx512_Led_Is_StopCallBack(google::protobuf::Message* msg);
 		void messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg);
+		rbk::MutableParam<std::string> _com;
     private:
 		rbk::protocol::Message_Odometer m_Odometer;
 		rbk::protocol::Message_Battery m_Battery;
-		rbk::MutableParam<uint32_t> _comNum;
-		Clight* _hx; 
+		CSerialport * _pCSerialport;
+		Clight * _hx;
+		wchar_t * _pcom;
 };
 
 class ILightDataCalcu;
@@ -35,11 +38,10 @@ public:
 	Clight();
 	~Clight();
 	void update(EType type, double param);
+	CSerialport * _pCSerialport;
 private:
 	ILightDataCalcu * _pILightDataCalcu[MAX_CALC_TYPE_NUM];
-	CSerialport * _pCSerialport;
 	char _data[512];
-
 };
 
 class CSerialport

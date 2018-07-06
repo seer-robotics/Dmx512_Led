@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <math.h>
 using namespace std;
-
+#include <atlconv.h>
 RBK_INHERIT_SOURCE(Dmx512_Led)
 
 Dmx512_Led::Dmx512_Led(){
@@ -28,7 +28,15 @@ Dmx512_Led::Dmx512_Led(){
 Dmx512_Led::~Dmx512_Led(){
 	delete _hx;
 }
-void Dmx512_Led::loadFromConfigFile(){}
+
+void Dmx512_Led::loadFromConfigFile()
+{
+	loadParam(_com,"Dmx512LedCom","COM4");
+	//turn the string to char to wchar :use the <atlconv.h> and its A2W.
+	USES_CONVERSION;
+	_pcom = A2W(_com.c_str());
+	_hx->_pCSerialport->init(_pcom);
+}
 //订阅里程、电池信息
 void Dmx512_Led::setSubscriberCallBack()
 {
@@ -69,7 +77,6 @@ void Dmx512_Led::run()
 			et = Clight::EStop;
 		}
 		_hx->update(et, param);
-		
 	}
 }
 Clight::Clight(){
@@ -77,9 +84,6 @@ Clight::Clight(){
 	_pILightDataCalcu[1] = new RunCalcu();
 	_pILightDataCalcu[2] = new BatteryCalcu();
 	_pCSerialport = new CSerialport();
-	_pCSerialport->init(L"COM4");
-
-
 }
 Clight::~Clight() {
 	if (NULL != _pILightDataCalcu)
@@ -90,7 +94,6 @@ Clight::~Clight() {
 	{
 		delete _pCSerialport;
 	}
-
 }
 
 
@@ -114,11 +117,11 @@ void CSerialport::init(CONST WCHAR *LPCWSTR)
 	_hcom = CreateFile(LPCWSTR, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (_hcom == INVALID_HANDLE_VALUE) 
 	{ 
-		cout << "DMX512 INIT FAILED!" << endl; 
+		LogError("The init of Dmx512 failed!");
 	} 
 	else
 	{
-		cout << "DMX512 CREATED SCUSSEC!" << endl;
+		LogInfo("The init of Dmx512 success!");
 	}
 	SetupComm(_hcom, 1024, 1024);
 	DCB dcb;
@@ -133,10 +136,11 @@ void CSerialport::init(CONST WCHAR *LPCWSTR)
 
 void CSerialport::send(const char *data)
 {
+	
 	DWORD dwWrittenLen = 0;
 	SetCommBreak(_hcom);	Sleep(10);
 	ClearCommBreak(_hcom);	Sleep(0.1);
-	WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
+	bool bSend =WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
 }
 
 void FatalWarrningCalcu::calc(char * data, double param)
