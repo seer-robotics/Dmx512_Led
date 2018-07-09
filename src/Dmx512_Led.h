@@ -20,13 +20,15 @@ class Dmx512_Led:public NPluginInterface
 	    void setSubscriberCallBack();
 		void messageDmx512_Led_Is_StopCallBack(google::protobuf::Message* msg);
 		void messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg);
-		rbk::MutableParam<std::string> _com;
+		rbk::MutableParam<int> _comNum;
     private:
 		rbk::protocol::Message_Odometer m_Odometer;
 		rbk::protocol::Message_Battery m_Battery;
 		CSerialport * _pCSerialport;
 		Clight * _hx;
 		wchar_t * _pcom;
+		std::string _com;
+		std::string _comRaw;
 };
 
 class ILightDataCalcu;

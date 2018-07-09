@@ -31,9 +31,12 @@ Dmx512_Led::~Dmx512_Led(){
 
 void Dmx512_Led::loadFromConfigFile()
 {
-	loadParam(_com,"Dmx512LedCom","COM4");
-	//turn the string to char to wchar :use the <atlconv.h> and its A2W.
+	loadParam(_comNum, "DmxComNum", 4, 1, 7, rbk::ParamGroup::Chassis, "The com of Dmx512_Led");
+	//turn the string to char to wchar :use the <atlconv.h> and its A2W
 	USES_CONVERSION;
+	_comRaw = "COM";
+	_com = _comRaw + to_string(_comNum);
+	LogInfo("The com of Dmx512 is " << _com  << " !");
 	_pcom = A2W(_com.c_str());
 	_hx->_pCSerialport->init(_pcom);
 }
