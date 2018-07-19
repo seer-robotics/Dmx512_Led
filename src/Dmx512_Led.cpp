@@ -40,19 +40,19 @@ void Dmx512_Led::loadFromConfigFile()
 	_pcom = A2W(_com.c_str());
 	_hx->_pCSerialport->init(_pcom);
 }
-//订阅里程、电池信息
+
 void Dmx512_Led::setSubscriberCallBack()
 {
 	setTopicCallBack<rbk::protocol::Message_Odometer>(&Dmx512_Led::messageDmx512_Led_Is_StopCallBack, this);
 	setTopicCallBack<rbk::protocol::Message_Battery>(&Dmx512_Led::messageDmx512_Led_BatteryCallBack, this);
 }
-//获取里程信息
+
 void Dmx512_Led::messageDmx512_Led_Is_StopCallBack(google::protobuf::Message* msg)
 {
 	m_Odometer.CopyFrom(*msg);
 	return;
 }
-//获取电池信息
+
 void Dmx512_Led::messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg)
 {
 	m_Battery.CopyFrom(*msg);
@@ -79,6 +79,11 @@ void Dmx512_Led::run()
 			param = m_Battery.percetage();
 			et = Clight::EStop;
 		}
+		else if (0 && m_Odometer.angle())
+		{
+			et = Clight::EBlock;
+			SLEEP(200);
+		}
 		_hx->update(et, param);
 	}
 }
@@ -86,6 +91,7 @@ Clight::Clight(){
 	_pILightDataCalcu[0] = new FatalWarrningCalcu();
 	_pILightDataCalcu[1] = new RunCalcu();
 	_pILightDataCalcu[2] = new BatteryCalcu();
+	_pILightDataCalcu[4] = new BlockCalcu();
 	_pCSerialport = new CSerialport();
 }
 Clight::~Clight() {
@@ -182,6 +188,27 @@ void BatteryCalcu::calc(char * data, double param)
 	{
 		data[i] = red;
 		data[i + 1] = green;
+	}
+}
+
+//Just for chenlei's demand,it isn't completed
+//Function is turning red to light-out.
+void BlockCalcu::calc(char * data, double param)		
+{
+	int choice = 1;
+	switch (choice)
+	{
+	case 1:
+		for (int i = 1; i <= 512; i = i + 4)
+		{
+			data[i] = 0xFF;
+		}
+		choice = 2;
+	case 2:
+		memset(data, 0x00, sizeof(data));
+		choice = 1;
+	default:
+		break;
 	}
 }
 

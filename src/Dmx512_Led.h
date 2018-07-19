@@ -36,7 +36,7 @@ class CSerialport;
 class Clight
 {
 public:
-	enum EType { EFatalw = 0, ERun, EStop, EFlow };
+	enum EType { EFatalw = 0, ERun, EStop, EFlow, EBlock };
 	Clight();
 	~Clight();
 	void update(EType type, double param);
@@ -66,7 +66,7 @@ class ILightDataCalcu
 class FatalWarrningCalcu : public ILightDataCalcu
 {
 	public:
-		FatalWarrningCalcu() { count = 1; brightness = 0x00; }
+		FatalWarrningCalcu() {}
 		~FatalWarrningCalcu() {}
 		void calc(char * data, double param = 0);
 	private:
@@ -78,7 +78,7 @@ class FatalWarrningCalcu : public ILightDataCalcu
 class RunCalcu : public ILightDataCalcu
 {
 	public:
-		RunCalcu(){ count = 1; brightness = 0x00; }
+		RunCalcu(){}
 		~RunCalcu(){}
 		void calc(char * data, double param = 0);
 	private:
@@ -88,6 +88,12 @@ class RunCalcu : public ILightDataCalcu
 };
 
 class BatteryCalcu : public ILightDataCalcu
+{
+	public:
+		void calc(char * data, double param = 0);
+};
+
+class BlockCalcu : public ILightDataCalcu
 {
 	public:
 		void calc(char * data, double param = 0);
