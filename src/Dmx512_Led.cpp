@@ -17,12 +17,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-using namespace std;
 #include <atlconv.h>
+
+using namespace std;
 RBK_INHERIT_SOURCE(Dmx512_Led)
+
+namespace 
+{
+	const int CHANEL_RED = 1;
+	const int CHANEL_WHITE = 2;
+	const int CHANEL_GREEN = 3;
+	const int CHANEL_BLUE = 4;
+}
 
 Dmx512_Led::Dmx512_Led(){
 	_hx = new Clight();
+	
 }
 
 Dmx512_Led::~Dmx512_Led(){
@@ -32,22 +42,28 @@ Dmx512_Led::~Dmx512_Led(){
 void Dmx512_Led::loadFromConfigFile()
 {
 	loadParam(_comNum, "DmxComNum", 4, 1, 7, rbk::ParamGroup::Chassis, "The com of Dmx512_Led");
-	//turn the string to char to wchar :use the <atlconv.h> and its A2W
+	/* turn the string to char to wchar :use the <atlconv.h> and its A2W */
 	USES_CONVERSION;
 	_comRaw = "COM";
 	_com = _comRaw + to_string(_comNum);
 	LogInfo("The com of Dmx512 is " << _com  << " !");
 	_pcom = A2W(_com.c_str());
 	_hx->_pCSerialport->init(_pcom);
+	loadParam(_color_r, "DmxLedR", 0, 0, 255, rbk::ParamGroup::Chassis, "The R of Dmx512_Led");
+	loadParam(_color_g, "DmxLedG", 255, 0, 255, rbk::ParamGroup::Chassis, "The G of Dmx512_Led");
+	loadParam(_color_b, "DmxLedB", 0, 0, 255, rbk::ParamGroup::Chassis, "The B of Dmx512_Led");
+	loadParam(_color_w, "DmxLedW", 0, 0, 255, rbk::ParamGroup::Chassis, "The W of Dmx512_Led");
+	loadParam(isShowCharging, "isDmxLedShowCharging", true, rbk::ParamGroup::Chassis, "ShowCharging or not");
+	loadParam(isShowBattery, "isDmxLedShowBattery", true, rbk::ParamGroup::Chassis, "ShowBattery or not");
 }
 
 void Dmx512_Led::setSubscriberCallBack()
 {
-	setTopicCallBack<rbk::protocol::Message_Odometer>(&Dmx512_Led::messageDmx512_Led_Is_StopCallBack, this);
+	setTopicCallBack<rbk::protocol::Message_Odometer>(&Dmx512_Led::messageDmx512_Led_OdometerCallBack, this);
 	setTopicCallBack<rbk::protocol::Message_Battery>(&Dmx512_Led::messageDmx512_Led_BatteryCallBack, this);
 }
 
-void Dmx512_Led::messageDmx512_Led_Is_StopCallBack(google::protobuf::Message* msg)
+void Dmx512_Led::messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg)
 {
 	m_Odometer.CopyFrom(*msg);
 	return;
@@ -61,38 +77,64 @@ void Dmx512_Led::messageDmx512_Led_BatteryCallBack(google::protobuf::Message* ms
 
 void Dmx512_Led::run()
 {
+	//this->callService<void, uint16_t, bool>("DSPChassis", "setDO", 15, true);
 	while (true)
 	{
 		SLEEP(20);
 		Clight::EType et;
-		double param = 0;
+		color_r = _color_r;
+		color_g = _color_g;
+		color_b = _color_b;
+		color_w = _color_w;
+		
+		/* if there exist erro or fatal ,it has the first priority*/
 		if (rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())
 		{
-			et = Clight::EFatalw;
+			et = Clight::EErrofatal;
 		}
-		else if(!m_Odometer.is_stop())
+
+		/* run without erro or fatal*/
+		else if (!m_Odometer.is_stop())
 		{
-			et = Clight::ERun;
+			is_stop_counts++;					//for avoiding the misoperation
+			if (is_stop_counts >= 10)
+			{
+				et = Clight::EMutableBreath;
+			}
 		}
-		else if(m_Odometer.is_stop())
+
+		/* battery logic*/
+		else if (_modelJson["chassis"]["batteryInfo"].get<uint32_t>() > 0)
 		{
-			param = m_Battery.percetage();
-			et = Clight::EStop;
+			if (m_Battery.is_charging() && isShowCharging)
+			{
+				et = Clight::ECharging;
+			}
+			else if (m_Odometer.is_stop() && isShowBattery)
+			{
+				is_stop_counts = 0;
+				bttery_percetage = m_Battery.percetage();
+				et = Clight::EBattery;
+			}
 		}
-		else if (0 && m_Odometer.angle())
+		else 
 		{
-			et = Clight::EBlock;
-			SLEEP(200);
+			et = Clight::EConstantLight;
 		}
-		_hx->update(et, param);
+		
+		_hx->update(et, bttery_percetage ,color_r, color_g, color_b, color_w);
 	}
 }
+
+
 Clight::Clight(){
-	_pILightDataCalcu[0] = new FatalWarrningCalcu();
-	_pILightDataCalcu[1] = new RunCalcu();
-	_pILightDataCalcu[2] = new BatteryCalcu();
-	_pILightDataCalcu[4] = new BlockCalcu();
+	_pILightDataCalcu[0] = new ErroFatal();
+	_pILightDataCalcu[1] = new BatteryCalcu();
+	_pILightDataCalcu[2] = new MutableBreath();
+	_pILightDataCalcu[3] = new Charging();
+	_pILightDataCalcu[4] = new ConstantLight();
 	_pCSerialport = new CSerialport();
+
 }
 Clight::~Clight() {
 	if (NULL != _pILightDataCalcu)
@@ -106,11 +148,11 @@ Clight::~Clight() {
 }
 
 
-void Clight::update(EType type, double param)
+void Clight::update(EType type, double param , int8_t R, int8_t G, int8_t B, int8_t W)
 {
-	_pILightDataCalcu[type]->calc(_data, param);
-	_pCSerialport->send(_data);
 	memset(_data, 0x00, sizeof(_data));
+	_pILightDataCalcu[type]->calc(_data, param, R, G, B, W);
+	_pCSerialport->send(_data);
 }
 
 CSerialport::CSerialport(){
@@ -140,78 +182,81 @@ void CSerialport::init(CONST WCHAR *LPCWSTR)
 	dcb.Parity = NOPARITY;
 	dcb.StopBits = 2;
 	SetCommState(_hcom, &dcb);
-	
 }
 
 void CSerialport::send(const char *data)
 {
-	
 	DWORD dwWrittenLen = 0;
 	SetCommBreak(_hcom);	Sleep(10);
 	ClearCommBreak(_hcom);	Sleep(0.1);
-	bool bSend =WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
+	WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
 }
 
-void FatalWarrningCalcu::calc(char * data, double param)
+void ErroFatal::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
 {
-	_aa = _aa + 4;
-	int bb = std::abs(_aa) * 2;
-	if (bb > 255)
+	_increment = _increment + 4;
+	int final_value = std::abs(_increment) * 2;
+	if (final_value > 255)
 	{
-		bb = 255;
+		final_value = 255;
 	}
-	for (int i = 2; i <= 512; i = i + 4)
+	for (int i = CHANEL_RED; i <= 50; i = i + 4)
 	{
-		data[i] = bb; 
-	}
-}
-
-void RunCalcu::calc(char * data, double param)
-{
-	_aa = _aa + 4;
-	int bb = std::abs(_aa) * 2;
-	if (bb > 255)
-	{
-		bb = 255;
-	}
-	for (int i = 3; i <= 512; i = i + 4)
-	{
-		data[i] = bb;
+		data[i] = final_value;
 	}
 }
 
-void BatteryCalcu::calc(char * data, double param)
+void BatteryCalcu::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
 {
 	int red = 0xFF * (1 - param);
 	int green = 0xFF * param;
-	for (int i = 1; i <= 512; i = i + 4)
+	for (int i = CHANEL_RED; i <= 50; i = i + 4)
 	{
 		data[i] = red;
-		data[i + 1] = green;
+		data[i + 2] = green;
 	}
 }
 
-//Just for chenlei's demand,it isn't completed
-//Function is turning red to light-out.
-void BlockCalcu::calc(char * data, double param)		
+void MutableBreath::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
 {
-	int choice = 1;
-	switch (choice)
+	_increment = _increment + 4;
+	int final_value = std::abs(_increment) * 2;
+	if (final_value > 255)
 	{
-	case 1:
-		for (int i = 1; i <= 512; i = i + 4)
-		{
-			data[i] = 0xFF;
-		}
-		choice = 2;
-	case 2:
-		memset(data, 0x00, sizeof(data));
-		choice = 1;
-	default:
-		break;
+		final_value = 255;
+	}
+	for (int i = CHANEL_RED; i <= 50; i = i + 4)
+	{
+		data[i] = ((R * final_value) / 255);
+		data[i + 2] = ((G * final_value) / 255);
+		data[i + 3] = ((B * final_value) / 255);
+		data[i + 1] = ((W * final_value) / 255);
 	}
 }
 
+void ConstantLight::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
+{
+	for (int i = CHANEL_RED; i <= 50; i = i + 4)
+	{
+		data[i] = R;
+		data[i + 2] =G;
+		data[i + 3] = B;
+		data[i + 1] = W;
+	}
+}
 
-
-
+void Charging::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
+{
+	/* Orange color is R:255 and B:165 */
+	_increment = _increment + 4;
+	int final_value = std::abs(_increment) * 2;
+	if (final_value > 255)
+	{
+		final_value = 255;
+	}
+	for (int i = CHANEL_RED; i <= 50; i = i + 4)
+	{
+		data[i] = final_value;
+		data[i + 2] = ((165 * final_value) / 255);
+	}
+}

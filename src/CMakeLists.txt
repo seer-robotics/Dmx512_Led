@@ -7,6 +7,7 @@ include(SetOutputDirectory)
 IF(WIN32)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS 
 											${RBK_PROTO_DIR}/message_battery.proto
+											${RBK_PROTO_DIR}/message_navigation.proto
 											${RBK_PROTO_DIR}/message_odometer.proto	
 											${RBK_PROTO_DIR}/message_header.proto)
 ENDIF()

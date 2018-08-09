@@ -18,9 +18,16 @@ class Dmx512_Led:public NPluginInterface
         void run();
         void loadFromConfigFile();
 	    void setSubscriberCallBack();
-		void messageDmx512_Led_Is_StopCallBack(google::protobuf::Message* msg);
+		void messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg);
 		void messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg);
 		rbk::MutableParam<int> _comNum;
+		rbk::MutableParam<int> _color_r;
+		rbk::MutableParam<int> _color_g;
+		rbk::MutableParam<int> _color_b;
+		rbk::MutableParam<int> _color_w;
+		rbk::MutableParam<bool> isShowCharging;
+		rbk::MutableParam<bool> isShowBattery;
+
     private:
 		rbk::protocol::Message_Odometer m_Odometer;
 		rbk::protocol::Message_Battery m_Battery;
@@ -29,21 +36,28 @@ class Dmx512_Led:public NPluginInterface
 		wchar_t * _pcom;
 		std::string _com;
 		std::string _comRaw;
+		rbk::utils::json _modelJson;
+		int is_stop_counts;
+		double bttery_percetage;
+		int8_t color_r;
+		int8_t color_g;
+		int8_t color_b;
+		int8_t color_w;
 };
 
 class ILightDataCalcu;
 class CSerialport;
 class Clight
 {
-public:
-	enum EType { EFatalw = 0, ERun, EStop, EFlow, EBlock };
-	Clight();
-	~Clight();
-	void update(EType type, double param);
-	CSerialport * _pCSerialport;
-private:
-	ILightDataCalcu * _pILightDataCalcu[MAX_CALC_TYPE_NUM];
-	char _data[512];
+	public:
+		enum EType { EErrofatal, EBattery, EMutableBreath, ECharging, EConstantLight};
+		Clight();
+		~Clight();
+		void update(EType type, double param, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+		CSerialport * _pCSerialport;
+	private:
+		ILightDataCalcu * _pILightDataCalcu[MAX_CALC_TYPE_NUM];
+		char _data[512];
 };
 
 class CSerialport
@@ -60,43 +74,45 @@ class CSerialport
 class ILightDataCalcu
 {
 	public:
-		virtual void calc(char * data, double param = 0) = 0;
+		virtual void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0) = 0;
 };
 
-class FatalWarrningCalcu : public ILightDataCalcu
+class ErroFatal : public ILightDataCalcu
 {
 	public:
-		FatalWarrningCalcu() {}
-		~FatalWarrningCalcu() {}
-		void calc(char * data, double param = 0);
+		ErroFatal() {}
+		~ErroFatal() {}
+		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
 	private:
-		int count;
-		int brightness;
-		int8_t _aa = 0;
-};
-
-class RunCalcu : public ILightDataCalcu
-{
-	public:
-		RunCalcu(){}
-		~RunCalcu(){}
-		void calc(char * data, double param = 0);
-	private:
-		int count;
-		int brightness;
-		int8_t _aa = 0;
+		int8_t _increment = 0;
 };
 
 class BatteryCalcu : public ILightDataCalcu
 {
 	public:
-		void calc(char * data, double param = 0);
+		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
 };
 
-class BlockCalcu : public ILightDataCalcu
+class MutableBreath : public ILightDataCalcu
 {
 	public:
-		void calc(char * data, double param = 0);
+		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+	private:
+		int8_t _increment = 0;
+};
+
+class ConstantLight : public ILightDataCalcu
+{
+	public:
+		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+};
+
+class Charging : public ILightDataCalcu
+{
+	public:
+		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+	private:
+		int8_t _increment = 0;
 };
 
 RBK_INHERIT_PROVIDER(Dmx512_Led, NPluginInterface, "1.0.0");
