@@ -21,8 +21,17 @@ using namespace std;
 #include <atlconv.h>
 RBK_INHERIT_SOURCE(Dmx512_Led)
 
+namespace 
+{
+	const int CHANEL_RED = 1;
+	const int CHANEL_WHITE = 2;
+	const int CHANEL_GREEN = 3;
+	const int CHANEL_BLUE = 4;
+}
+
 Dmx512_Led::Dmx512_Led(){
 	_hx = new Clight();
+	
 }
 
 Dmx512_Led::~Dmx512_Led(){
@@ -39,12 +48,14 @@ void Dmx512_Led::loadFromConfigFile()
 	LogInfo("The com of Dmx512 is " << _com  << " !");
 	_pcom = A2W(_com.c_str());
 	_hx->_pCSerialport->init(_pcom);
+	
 }
 
 void Dmx512_Led::setSubscriberCallBack()
 {
 	setTopicCallBack<rbk::protocol::Message_Odometer>(&Dmx512_Led::messageDmx512_Led_Is_StopCallBack, this);
 	setTopicCallBack<rbk::protocol::Message_Battery>(&Dmx512_Led::messageDmx512_Led_BatteryCallBack, this);
+	
 }
 
 void Dmx512_Led::messageDmx512_Led_Is_StopCallBack(google::protobuf::Message* msg)
@@ -61,14 +72,15 @@ void Dmx512_Led::messageDmx512_Led_BatteryCallBack(google::protobuf::Message* ms
 
 void Dmx512_Led::run()
 {
+	this->callService<void, uint16_t, bool>("DSPChassis", "setDO", 15, true);
 	while (true)
 	{
 		SLEEP(20);
 		Clight::EType et;
 		double param = 0;
-		if (rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())
+		if (rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())//
 		{
-			et = Clight::EFatalw;
+			et = Clight::EFatalw; 
 		}
 		else if(!m_Odometer.is_stop())
 		{
@@ -87,12 +99,15 @@ void Dmx512_Led::run()
 		_hx->update(et, param);
 	}
 }
+
+
 Clight::Clight(){
 	_pILightDataCalcu[0] = new FatalWarrningCalcu();
 	_pILightDataCalcu[1] = new RunCalcu();
 	_pILightDataCalcu[2] = new BatteryCalcu();
 	_pILightDataCalcu[4] = new BlockCalcu();
 	_pCSerialport = new CSerialport();
+
 }
 Clight::~Clight() {
 	if (NULL != _pILightDataCalcu)
@@ -108,9 +123,9 @@ Clight::~Clight() {
 
 void Clight::update(EType type, double param)
 {
+	memset(_data, 0x00, sizeof(_data));
 	_pILightDataCalcu[type]->calc(_data, param);
 	_pCSerialport->send(_data);
-	memset(_data, 0x00, sizeof(_data));
 }
 
 CSerialport::CSerialport(){
@@ -140,7 +155,6 @@ void CSerialport::init(CONST WCHAR *LPCWSTR)
 	dcb.Parity = NOPARITY;
 	dcb.StopBits = 2;
 	SetCommState(_hcom, &dcb);
-	
 }
 
 void CSerialport::send(const char *data)
@@ -149,7 +163,7 @@ void CSerialport::send(const char *data)
 	DWORD dwWrittenLen = 0;
 	SetCommBreak(_hcom);	Sleep(10);
 	ClearCommBreak(_hcom);	Sleep(0.1);
-	bool bSend =WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
+	WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
 }
 
 void FatalWarrningCalcu::calc(char * data, double param)
@@ -160,7 +174,7 @@ void FatalWarrningCalcu::calc(char * data, double param)
 	{
 		bb = 255;
 	}
-	for (int i = 2; i <= 512; i = i + 4)
+	for (int i = CHANEL_RED; i <= 512; i = i + 4)
 	{
 		data[i] = bb; 
 	}
@@ -174,7 +188,7 @@ void RunCalcu::calc(char * data, double param)
 	{
 		bb = 255;
 	}
-	for (int i = 3; i <= 512; i = i + 4)
+	for (int i = CHANEL_BLUE; i <= 512; i = i + 4)
 	{
 		data[i] = bb;
 	}
@@ -184,29 +198,53 @@ void BatteryCalcu::calc(char * data, double param)
 {
 	int red = 0xFF * (1 - param);
 	int green = 0xFF * param;
-	for (int i = 1; i <= 512; i = i + 4)
+	for (int i = CHANEL_RED; i <= 512; i = i + 4)
 	{
 		data[i] = red;
-		data[i + 1] = green;
+		data[i + 2] = green;
 	}
 }
 
 //Just for chenlei's demand,it isn't completed
-//Function is turning red to light-out.
+//Function is turning red-blink.
 void BlockCalcu::calc(char * data, double param)		
 {
-	int choice = 1;
 	switch (choice)
 	{
 	case 1:
-		for (int i = 1; i <= 512; i = i + 4)
+		for (int i = CHANEL_RED; i <= 512; i = i + 4)
 		{
 			data[i] = 0xFF;
+			//data[i+2] = 0xFF;
 		}
 		choice = 2;
+		break;
 	case 2:
 		memset(data, 0x00, sizeof(data));
 		choice = 1;
+		break;
+	default:
+		break;
+	}
+}
+
+//yellow-blink 2018.8.9
+void YellowBlink::calc(char * data, double param)
+{
+	switch (choice)
+	{
+	case 1:
+		for (int i = CHANEL_RED; i <= 512; i = i + 4)
+		{
+			data[i] = 0xFF;
+			data[i + 2] = 0xFF;
+		}
+		choice = 2;
+		break;
+	case 2:
+		memset(data, 0x00, sizeof(data));
+		choice = 1;
+		break;
 	default:
 		break;
 	}

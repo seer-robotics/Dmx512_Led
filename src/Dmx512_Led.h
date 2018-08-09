@@ -70,8 +70,6 @@ class FatalWarrningCalcu : public ILightDataCalcu
 		~FatalWarrningCalcu() {}
 		void calc(char * data, double param = 0);
 	private:
-		int count;
-		int brightness;
 		int8_t _aa = 0;
 };
 
@@ -82,8 +80,6 @@ class RunCalcu : public ILightDataCalcu
 		~RunCalcu(){}
 		void calc(char * data, double param = 0);
 	private:
-		int count;
-		int brightness;
 		int8_t _aa = 0;
 };
 
@@ -96,8 +92,21 @@ class BatteryCalcu : public ILightDataCalcu
 class BlockCalcu : public ILightDataCalcu
 {
 	public:
+		BlockCalcu() { choice = 1; }
 		void calc(char * data, double param = 0);
+	private:
+		int choice;
 };
+
+class YellowBlink : public ILightDataCalcu
+{
+	public:
+		YellowBlink() { choice = 1; }
+		void calc(char * data, double param = 0);
+	private:
+		int choice;
+};
+
 
 RBK_INHERIT_PROVIDER(Dmx512_Led, NPluginInterface, "1.0.0");
 #endif
