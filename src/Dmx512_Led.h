@@ -39,10 +39,10 @@ class Dmx512_Led:public NPluginInterface
 		rbk::utils::json _modelJson;
 		int is_stop_counts;
 		double bttery_percetage;
-		int8_t color_r;
-		int8_t color_g;
-		int8_t color_b;
-		int8_t color_w;
+		int color_r;
+		int color_g;
+		int color_b;
+		int color_w;
 };
 
 class ILightDataCalcu;
@@ -53,7 +53,7 @@ class Clight
 		enum EType { EErrofatal, EBattery, EMutableBreath, ECharging, EConstantLight};
 		Clight();
 		~Clight();
-		void update(EType type, double param, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+		void update(EType type, double param, int R = 0, int G = 0, int B = 0, int W = 0);
 		CSerialport * _pCSerialport;
 	private:
 		ILightDataCalcu * _pILightDataCalcu[MAX_CALC_TYPE_NUM];
@@ -74,7 +74,7 @@ class CSerialport
 class ILightDataCalcu
 {
 	public:
-		virtual void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0) = 0;
+		virtual void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0) = 0;
 };
 
 class ErroFatal : public ILightDataCalcu
@@ -82,7 +82,7 @@ class ErroFatal : public ILightDataCalcu
 	public:
 		ErroFatal() {}
 		~ErroFatal() {}
-		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
 	private:
 		int8_t _increment = 0;
 };
@@ -90,13 +90,13 @@ class ErroFatal : public ILightDataCalcu
 class BatteryCalcu : public ILightDataCalcu
 {
 	public:
-		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
 };
 
 class MutableBreath : public ILightDataCalcu
 {
 	public:
-		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
 	private:
 		int8_t _increment = 0;
 };
@@ -104,13 +104,13 @@ class MutableBreath : public ILightDataCalcu
 class ConstantLight : public ILightDataCalcu
 {
 	public:
-		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
 };
 
 class Charging : public ILightDataCalcu
 {
 	public:
-		void calc(char * data, double param = 0, int8_t R = 0, int8_t G = 0, int8_t B = 0, int8_t W = 0);
+		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
 	private:
 		int8_t _increment = 0;
 };

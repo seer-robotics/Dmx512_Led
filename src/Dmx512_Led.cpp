@@ -81,15 +81,17 @@ void Dmx512_Led::run()
 	while (true)
 	{
 		SLEEP(20);
+		getSubscriberData(m_Battery);
+		getSubscriberData(m_Odometer);
 		Clight::EType et;
 		color_r = _color_r;
 		color_g = _color_g;
 		color_b = _color_b;
 		color_w = _color_w;
 
-        try {
+		try {
             /* if there exist erro or fatal ,it has the first priority*/
-            if (rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())
+            if(rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())
             {
                 et = Clight::EErrofatal;
             }
@@ -101,7 +103,7 @@ void Dmx512_Led::run()
                 if (is_stop_counts >= 10)
                 {
                     et = Clight::EMutableBreath;
-                }
+				}
             }
 
             /* battery logic*/
@@ -117,16 +119,16 @@ void Dmx512_Led::run()
                     bttery_percetage = m_Battery.percetage();
                     et = Clight::EBattery;
                 }
-            }
-            else
-            {
-                et = Clight::EConstantLight;
-            }
-        }
-        catch (const std::exception& e) {
-            LogError(e.what());
-        }
-		
+				else
+				{
+					et = Clight::EConstantLight;
+				}
+            } 
+		}
+		catch (const std::exception& e) 
+		{
+			LogError(e.what());
+		}
 		_hx->update(et, bttery_percetage ,color_r, color_g, color_b, color_w);
 	}
 }
@@ -153,7 +155,7 @@ Clight::~Clight() {
 }
 
 
-void Clight::update(EType type, double param , int8_t R, int8_t G, int8_t B, int8_t W)
+void Clight::update(EType type, double param , int R, int G, int B, int W)
 {
 	memset(_data, 0x00, sizeof(_data));
 	_pILightDataCalcu[type]->calc(_data, param, R, G, B, W);
@@ -197,7 +199,7 @@ void CSerialport::send(const char *data)
 	WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
 }
 
-void ErroFatal::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
+void ErroFatal::calc(char * data, double param, int R, int G, int B, int W)
 {
 	_increment = _increment + 4;
 	int final_value = std::abs(_increment) * 2;
@@ -211,7 +213,7 @@ void ErroFatal::calc(char * data, double param, int8_t R, int8_t G, int8_t B, in
 	}
 }
 
-void BatteryCalcu::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
+void BatteryCalcu::calc(char * data, double param, int R, int G, int B, int W)
 {
 	int red = 0xFF * (1 - param);
 	int green = 0xFF * param;
@@ -222,7 +224,7 @@ void BatteryCalcu::calc(char * data, double param, int8_t R, int8_t G, int8_t B,
 	}
 }
 
-void MutableBreath::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
+void MutableBreath::calc(char * data, double param, int R, int G, int B, int W)
 {
 	_increment = _increment + 4;
 	int final_value = std::abs(_increment) * 2;
@@ -239,7 +241,7 @@ void MutableBreath::calc(char * data, double param, int8_t R, int8_t G, int8_t B
 	}
 }
 
-void ConstantLight::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
+void ConstantLight::calc(char * data, double param, int R, int G, int B, int W)
 {
 	for (int i = CHANEL_RED; i <= 50; i = i + 4)
 	{
@@ -250,7 +252,7 @@ void ConstantLight::calc(char * data, double param, int8_t R, int8_t G, int8_t B
 	}
 }
 
-void Charging::calc(char * data, double param, int8_t R, int8_t G, int8_t B, int8_t W)
+void Charging::calc(char * data, double param, int R, int G, int B, int W)
 {
 	/* Orange color is R:255 and B:165 */
 	_increment = _increment + 4;
