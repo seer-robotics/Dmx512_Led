@@ -32,7 +32,7 @@ namespace
 
 Dmx512_Led::Dmx512_Led(){
 	_hx = new Clight();
-	
+    _modelJson = rbk::chasis::Model::Instance()->getJson();
 }
 
 Dmx512_Led::~Dmx512_Led(){
@@ -86,41 +86,46 @@ void Dmx512_Led::run()
 		color_g = _color_g;
 		color_b = _color_b;
 		color_w = _color_w;
-		
-		/* if there exist erro or fatal ,it has the first priority*/
-		if (rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())
-		{
-			et = Clight::EErrofatal;
-		}
 
-		/* run without erro or fatal*/
-		else if (!m_Odometer.is_stop())
-		{
-			is_stop_counts++;					//for avoiding the misoperation
-			if (is_stop_counts >= 10)
-			{
-				et = Clight::EMutableBreath;
-			}
-		}
+        try {
+            /* if there exist erro or fatal ,it has the first priority*/
+            if (rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())
+            {
+                et = Clight::EErrofatal;
+            }
 
-		/* battery logic*/
-		else if (_modelJson["chassis"]["batteryInfo"].get<uint32_t>() > 0)
-		{
-			if (m_Battery.is_charging() && isShowCharging)
-			{
-				et = Clight::ECharging;
-			}
-			else if (m_Odometer.is_stop() && isShowBattery)
-			{
-				is_stop_counts = 0;
-				bttery_percetage = m_Battery.percetage();
-				et = Clight::EBattery;
-			}
-		}
-		else 
-		{
-			et = Clight::EConstantLight;
-		}
+            /* run without erro or fatal*/
+            else if (!m_Odometer.is_stop())
+            {
+                is_stop_counts++;					//for avoiding the misoperation
+                if (is_stop_counts >= 10)
+                {
+                    et = Clight::EMutableBreath;
+                }
+            }
+
+            /* battery logic*/
+            else if (_modelJson["chassis"]["batteryInfo"].get<uint32_t>() > 0)
+            {
+                if (m_Battery.is_charging() && isShowCharging)
+                {
+                    et = Clight::ECharging;
+                }
+                else if (m_Odometer.is_stop() && isShowBattery)
+                {
+                    is_stop_counts = 0;
+                    bttery_percetage = m_Battery.percetage();
+                    et = Clight::EBattery;
+                }
+            }
+            else
+            {
+                et = Clight::EConstantLight;
+            }
+        }
+        catch (const std::exception& e) {
+            LogError(e.what());
+        }
 		
 		_hx->update(et, bttery_percetage ,color_r, color_g, color_b, color_w);
 	}
