@@ -1,3 +1,11 @@
+/** @brief This is a pulgin of RBK
+******************************************************************************
+*  @file Dmx512_Led.h
+*  @author @darboy @piaoxu93 @qunge12345
+*  @version V1.0.0
+*  @date  2018-08-24
+*  @note  Data calculator class must inheritance ICalculator like @BatteryCalculator
+******************************************************************************/
 #ifndef _DMX512_LED_H_
 #define _DMX512_LED_H_
 #include <robokit/core/rbk_core.h>
@@ -18,8 +26,6 @@ class Dmx512_Led:public NPluginInterface
         void run();
         void loadFromConfigFile();
 	    void setSubscriberCallBack();
-		void messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg);
-		void messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg);
 		rbk::MutableParam<std::string> _com;
 		rbk::MutableParam<int> _color_r;
 		rbk::MutableParam<int> _color_g;
@@ -27,24 +33,17 @@ class Dmx512_Led:public NPluginInterface
 		rbk::MutableParam<int> _color_w;
 		rbk::MutableParam<bool> isShowCharging;
 		rbk::MutableParam<bool> isShowBattery;
-
     private:
         void modelChangedSubscriber();
 		rbk::protocol::Message_Odometer m_Odometer;
 		rbk::protocol::Message_Battery m_Battery;
-		CSerialport * _pCSerialport;
 		Clight * _hx;
 		rbk::utils::json _modelJson;
         rbk::rwMutex _modelMutex;
 		int is_stop_counts;
-		double bttery_percetage;
-		int color_r;
-		int color_g;
-		int color_b;
-		int color_w;
 };
 
-class ILightDataCalcu;
+class ICalculator;
 class CSerialport;
 class Clight
 {
@@ -52,10 +51,11 @@ class Clight
 		enum EType { EErrofatal, EBattery, EMutableBreath, ECharging, EConstantLight};
 		Clight();
 		~Clight();
-		bool update(EType type, double param, int R = 0, int G = 0, int B = 0, int W = 0);
+		bool update(EType type);
 		CSerialport * _pCSerialport;
+		ICalculator *  getPointOfICalculator(EType type) { return _pICalculator[type]; }
 	private:
-		ILightDataCalcu * _pILightDataCalcu[MAX_CALC_TYPE_NUM];
+		ICalculator * _pICalculator[MAX_CALC_TYPE_NUM];
 		char _data[512];
 };
 
@@ -70,46 +70,53 @@ class CSerialport
         rbk::utils::serialport::SyncSerial _hcom;
 };
 
-class ILightDataCalcu
+class ICalculator
 {
 	public:
-		virtual void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0) = 0;
+		virtual void calc(char * data) = 0;
 };
 
-class ErroFatal : public ILightDataCalcu
+class ErroFatalCalculator : public ICalculator
 {
 	public:
-		ErroFatal() {}
-		~ErroFatal() {}
-		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
+		void calc(char * data);
 	private:
 		int8_t _increment = 0;
 };
 
-class BatteryCalcu : public ILightDataCalcu
+class BatteryCalculator : public ICalculator
 {
 	public:
-		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
+		void calc(char * data);
+		void setBatteryPercent(double param) { _param = param; }
+	private:
+		double _param;
+
 };
 
-class MutableBreath : public ILightDataCalcu
+class MutableBreathCalculator : public ICalculator
 {
 	public:
-		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
+		void calc(char * data);
+		void setColor_RGBW(int* RGBW) {memcpy(_RGBW, RGBW, 4 * sizeof(int));}
 	private:
 		int8_t _increment = 0;
+		int _RGBW[4];
 };
 
-class ConstantLight : public ILightDataCalcu
+class ConstantLightCalculator : public ICalculator
 {
 	public:
-		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
+		void calc(char * data);
+		void setColor_RGBW(int* RGBW) { memcpy(_RGBW, RGBW, 4 * sizeof(int)); }
+	private:
+		int _RGBW[4];
 };
 
-class Charging : public ILightDataCalcu
+class ChargingCalculator : public ICalculator
 {
 	public:
-		void calc(char * data, double param = 0, int R = 0, int G = 0, int B = 0, int W = 0);
+		void calc(char * data);
 	private:
 		int8_t _increment = 0;
 };
