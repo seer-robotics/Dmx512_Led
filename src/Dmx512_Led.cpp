@@ -102,7 +102,6 @@ void Dmx512_Led::run() {
             catch (const std::exception& e) {
                 LogError(e.what());
             }
-            et = Clight::EType(100);
             if (!_hx->update(et, bttery_percetage, color_r, color_g, color_b, color_w)) {
                 break;
             }
