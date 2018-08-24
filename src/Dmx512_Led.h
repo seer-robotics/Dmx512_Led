@@ -12,6 +12,8 @@
 #include <robokit/utils/serial_port.h>
 #include "message_odometer.pb.h"
 #include "message_battery.pb.h"
+#include "message_controller.pb.h"
+#include "message_movetask.pb.h"
 
 #define MAX_CALC_TYPE_NUM 10
 using namespace rbk;
@@ -37,6 +39,8 @@ class Dmx512_Led:public NPluginInterface
         void modelChangedSubscriber();
 		rbk::protocol::Message_Odometer m_Odometer;
 		rbk::protocol::Message_Battery m_Battery;
+        rbk::protocol::Message_Controller m_controller;
+        rbk::protocol::Message_MoveStatus m_moveStatus;
 		Clight * _hx;
 		rbk::utils::json _modelJson;
         rbk::rwMutex _modelMutex;

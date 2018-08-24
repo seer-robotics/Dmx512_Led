@@ -37,6 +37,9 @@ void Dmx512_Led::loadFromConfigFile() {
 void Dmx512_Led::setSubscriberCallBack() {
 	setTopicCallBack<rbk::protocol::Message_Odometer>();
 	setTopicCallBack<rbk::protocol::Message_Battery>();
+    setTopicCallBack<rbk::protocol::Message_Controller>();
+    setTopicCallBack<rbk::protocol::Message_MoveStatus>();
+
     rbk::chasis::Model::Instance()->connectChangedSignal(std::bind(&Dmx512_Led::modelChangedSubscriber, this));
 }
 
@@ -60,6 +63,8 @@ void Dmx512_Led::run() {
             SLEEP(20);
             getSubscriberData(m_Battery); 
             getSubscriberData(m_Odometer);
+            getSubscriberData(m_moveStatus);
+            getSubscriberData(m_controller);
             Clight::EType et = Clight::EConstantLight;
 
 			/*Defint a int arrary to add the color together,the param is set by user.
@@ -89,6 +94,21 @@ void Dmx512_Led::run() {
                         is_stop_counts++;    //misoperation counter
                     }
                 }
+
+                // ========================== for ABB ==========================
+                // emc stop
+                else if (m_controller.emc()) {
+                    et = Clight::EConstantLight;
+                    int RGBW[4] = { 255, 0, 0, 0 };
+                    ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
+                    pConstantLight->setColor_RGBW(RGBW);
+                }
+
+                // blocked
+                else if (m_moveStatus.blocked()) {
+                    et = Clight::EErrofatal;
+                }
+                // =============================================================
 
                 /*	Battery logic order:
 					1.Orange breath light when charging && param @isShowChargine is true
@@ -204,7 +224,7 @@ bool CSerialport::init(const std::string& com) {
 bool CSerialport::send(const char *data, size_t size) {
 	DWORD dwWrittenLen = 0;
 	SetCommBreak(_hcom.port().native_handle());   SLEEP(10);  //depand on its protocol
-	ClearCommBreak(_hcom.port().native_handle()); SLEEP(0.1);
+	ClearCommBreak(_hcom.port().native_handle()); SLEEP(1);
     boost::system::error_code ec;
     _hcom.write(data, size, ec);
     if (ec) {
