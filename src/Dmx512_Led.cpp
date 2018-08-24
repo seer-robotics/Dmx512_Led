@@ -89,6 +89,13 @@ void Dmx512_Led::run() {
                     if (m_Battery.is_charging() && isShowCharging) {
                         et = Clight::ECharging;
                     }
+                    else if (m_Battery.percetage() < 0.2) {
+                        et = Clight::EConstantLight;
+                        color_r = 255;
+                        color_g = 0;
+                        color_b = 0;
+                        color_w = 0;
+                    }
                     else if (m_Odometer.is_stop() && isShowBattery) {
                         is_stop_counts = 0;
                         bttery_percetage = m_Battery.percetage();
@@ -102,6 +109,7 @@ void Dmx512_Led::run() {
             catch (const std::exception& e) {
                 LogError(e.what());
             }
+
             if (!_hx->update(et, bttery_percetage, color_r, color_g, color_b, color_w)) {
                 break;
             }
