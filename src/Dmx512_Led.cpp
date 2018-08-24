@@ -36,6 +36,8 @@ void Dmx512_Led::loadFromConfigFile() {
 void Dmx512_Led::setSubscriberCallBack() {
 	setTopicCallBack<rbk::protocol::Message_Odometer>(&Dmx512_Led::messageDmx512_Led_OdometerCallBack, this);
 	setTopicCallBack<rbk::protocol::Message_Battery>(&Dmx512_Led::messageDmx512_Led_BatteryCallBack, this);
+
+    rbk::chasis::Model::Instance()->connectChangedSignal(std::bind(&Dmx512_Led::modelChangedSubscriber, this));
 }
 
 void Dmx512_Led::messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg) {
@@ -46,6 +48,14 @@ void Dmx512_Led::messageDmx512_Led_OdometerCallBack(google::protobuf::Message* m
 void Dmx512_Led::messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg) {
 	m_Battery.CopyFrom(*msg);
 	return;
+}
+
+void Dmx512_Led::modelChangedSubscriber() {
+    rbk::ThreadPool::Instance()->schedule([this]() {
+        rbk::writeLock l(this->_modelMutex);
+        this->_modelJson = rbk::chasis::Model::Instance()->getJson();
+        LogInfo(formatLog("Text", "model updated"));
+    });
 }
 
 void Dmx512_Led::run() {
@@ -68,6 +78,7 @@ void Dmx512_Led::run() {
             color_b = _color_b;
             color_w = _color_w;
 
+            rbk::readLock l(_modelMutex);
             try {
                 /* if there exist erro or fatal ,it has the first priority*/
                 if (rbk::ErrorCodes::Instance()->errorNum() > 0 || rbk::ErrorCodes::Instance()->fatalNum() > 0) {

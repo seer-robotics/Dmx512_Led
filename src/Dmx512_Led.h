@@ -29,11 +29,13 @@ class Dmx512_Led:public NPluginInterface
 		rbk::MutableParam<bool> isShowBattery;
 
     private:
+        void modelChangedSubscriber();
 		rbk::protocol::Message_Odometer m_Odometer;
 		rbk::protocol::Message_Battery m_Battery;
 		CSerialport * _pCSerialport;
 		Clight * _hx;
 		rbk::utils::json _modelJson;
+        rbk::rwMutex _modelMutex;
 		int is_stop_counts;
 		double bttery_percetage;
 		int color_r;
