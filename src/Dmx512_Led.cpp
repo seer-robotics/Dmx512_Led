@@ -89,7 +89,7 @@ void Dmx512_Led::run() {
                     if (m_Battery.is_charging() && isShowCharging) {
                         et = Clight::ECharging;
                     }
-                    else if (m_Battery.percetage() < 0.2) {
+                    else if (m_Battery.percetage() < 0.3) {
                         et = Clight::EConstantLight;
                         color_r = 255;
                         color_g = 0;
