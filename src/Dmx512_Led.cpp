@@ -34,20 +34,10 @@ void Dmx512_Led::loadFromConfigFile() {
 }
 
 void Dmx512_Led::setSubscriberCallBack() {
-	setTopicCallBack<rbk::protocol::Message_Odometer>(&Dmx512_Led::messageDmx512_Led_OdometerCallBack, this);
-	setTopicCallBack<rbk::protocol::Message_Battery>(&Dmx512_Led::messageDmx512_Led_BatteryCallBack, this);
+	setTopicCallBack<rbk::protocol::Message_Odometer>();
+	setTopicCallBack<rbk::protocol::Message_Battery>();
 
     rbk::chasis::Model::Instance()->connectChangedSignal(std::bind(&Dmx512_Led::modelChangedSubscriber, this));
-}
-
-void Dmx512_Led::messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg) {
-	m_Odometer.CopyFrom(*msg);
-	return;
-}
-
-void Dmx512_Led::messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg) {
-	m_Battery.CopyFrom(*msg);
-	return;
 }
 
 void Dmx512_Led::modelChangedSubscriber() {
