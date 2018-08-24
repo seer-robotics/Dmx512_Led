@@ -1,54 +1,30 @@
-#include<Windows.h>
-#include<iostream>
 #include "Dmx512_Led.h"
-#include "message_odometer.pb.h"
-#include "message_battery.pb.h"
-#include <bitset>
-#include <strstream>
-#include <robokit/foundation/utils/geo_utils.h>
+
 #include <robokit/chasis/model.h>
 #include <robokit/core/error.h>
-#include <boost/lexical_cast.hpp>
-#include <robokit/chasis/model.h>
-#include <iostream>
-#include <errno.h>
-#include <signal.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <atlconv.h>
 
 using namespace std;
 RBK_INHERIT_SOURCE(Dmx512_Led)
 
-namespace 
-{
+namespace {
 	const int CHANEL_RED = 1;
 	const int CHANEL_WHITE = 2;
 	const int CHANEL_GREEN = 3;
 	const int CHANEL_BLUE = 4;
 }
 
-Dmx512_Led::Dmx512_Led(){
+Dmx512_Led::Dmx512_Led() {
 	_hx = new Clight();
     _modelJson = rbk::chasis::Model::Instance()->getJson();
 }
 
-Dmx512_Led::~Dmx512_Led(){
+Dmx512_Led::~Dmx512_Led() {
 	delete _hx;
 }
 
-void Dmx512_Led::loadFromConfigFile()
-{
-	loadParam(_comNum, "DmxComNum", 4, 1, 7, rbk::ParamGroup::Chassis, "The com of Dmx512_Led");
-	/* turn the string to char to wchar :use the <atlconv.h> and its A2W */
-	USES_CONVERSION;
-	_comRaw = "COM";
-	_com = _comRaw + to_string(_comNum);
+void Dmx512_Led::loadFromConfigFile() {
+	loadParam(_com, "DmxCom", "COM4", rbk::ParamGroup::Chassis, "The com of Dmx512_Led");
 	LogInfo("The com of Dmx512 is " << _com  << " !");
-	_pcom = A2W(_com.c_str());
-	_hx->_pCSerialport->init(_pcom);
 	loadParam(_color_r, "DmxLedR", 0, 0, 255, rbk::ParamGroup::Chassis, "The R of Dmx512_Led");
 	loadParam(_color_g, "DmxLedG", 255, 0, 255, rbk::ParamGroup::Chassis, "The G of Dmx512_Led");
 	loadParam(_color_b, "DmxLedB", 0, 0, 255, rbk::ParamGroup::Chassis, "The B of Dmx512_Led");
@@ -57,150 +33,146 @@ void Dmx512_Led::loadFromConfigFile()
 	loadParam(isShowBattery, "isDmxLedShowBattery", true, rbk::ParamGroup::Chassis, "ShowBattery or not");
 }
 
-void Dmx512_Led::setSubscriberCallBack()
-{
+void Dmx512_Led::setSubscriberCallBack() {
 	setTopicCallBack<rbk::protocol::Message_Odometer>(&Dmx512_Led::messageDmx512_Led_OdometerCallBack, this);
 	setTopicCallBack<rbk::protocol::Message_Battery>(&Dmx512_Led::messageDmx512_Led_BatteryCallBack, this);
 }
 
-void Dmx512_Led::messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg)
-{
+void Dmx512_Led::messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg) {
 	m_Odometer.CopyFrom(*msg);
 	return;
 }
 
-void Dmx512_Led::messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg)
-{
+void Dmx512_Led::messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg) {
 	m_Battery.CopyFrom(*msg);
 	return;
 }
 
-void Dmx512_Led::run()
-{
-	//this->callService<void, uint16_t, bool>("DSPChassis", "setDO", 15, true);
-	while (true)
-	{
-		SLEEP(20);
-		getSubscriberData(m_Battery);
-		getSubscriberData(m_Odometer);
-		Clight::EType et;
-		color_r = _color_r;
-		color_g = _color_g;
-		color_b = _color_b;
-		color_w = _color_w;
+void Dmx512_Led::run() {
+    while (true) {
 
-		try {
-            /* if there exist erro or fatal ,it has the first priority*/
-            if(rbk::ErrorCodes::Instance()->errorNum() || rbk::ErrorCodes::Instance()->fatalNum())
-            {
-                et = Clight::EErrofatal;
+        while (true) {
+            SLEEP(2000);
+            if (_hx->_pCSerialport->init(_com.get())) {
+                break;
             }
+        }
 
-            /* run without erro or fatal*/
-            else if (!m_Odometer.is_stop())
-            {
-                is_stop_counts++;					//for avoiding the misoperation
-                if (is_stop_counts >= 10)
-                {
-                    et = Clight::EMutableBreath;
-				}
+        while (true) {
+            SLEEP(20);
+            getSubscriberData(m_Battery);
+            getSubscriberData(m_Odometer);
+            Clight::EType et = Clight::EConstantLight;
+            color_r = _color_r;
+            color_g = _color_g;
+            color_b = _color_b;
+            color_w = _color_w;
+
+            try {
+                /* if there exist erro or fatal ,it has the first priority*/
+                if (rbk::ErrorCodes::Instance()->errorNum() > 0 || rbk::ErrorCodes::Instance()->fatalNum() > 0) {
+                    et = Clight::EErrofatal;
+                }
+
+                /* run without erro or fatal*/
+                else if (!m_Odometer.is_stop()) {
+                    if (is_stop_counts >= 10) {
+                        et = Clight::EMutableBreath;
+                    }
+                    else {
+                        is_stop_counts++;    //for avoiding the misoperation
+                    }
+                }
+
+                /* battery logic*/
+                else if (_modelJson["chassis"]["batteryInfo"].get<uint32_t>() > 0) {
+                    if (m_Battery.is_charging() && isShowCharging) {
+                        et = Clight::ECharging;
+                    }
+                    else if (m_Odometer.is_stop() && isShowBattery) {
+                        is_stop_counts = 0;
+                        bttery_percetage = m_Battery.percetage();
+                        et = Clight::EBattery;
+                    }
+                    else {
+                        et = Clight::EConstantLight;
+                    }
+                }
             }
-
-            /* battery logic*/
-            else if (_modelJson["chassis"]["batteryInfo"].get<uint32_t>() > 0)
-            {
-                if (m_Battery.is_charging() && isShowCharging)
-                {
-                    et = Clight::ECharging;
-                }
-                else if (m_Odometer.is_stop() && isShowBattery)
-                {
-                    is_stop_counts = 0;
-                    bttery_percetage = m_Battery.percetage();
-                    et = Clight::EBattery;
-                }
-				else
-				{
-					et = Clight::EConstantLight;
-				}
-            } 
-		}
-		catch (const std::exception& e) 
-		{
-			LogError(e.what());
-		}
-		_hx->update(et, bttery_percetage ,color_r, color_g, color_b, color_w);
-	}
+            catch (const std::exception& e) {
+                LogError(e.what());
+            }
+            et = Clight::EType(100);
+            if (!_hx->update(et, bttery_percetage, color_r, color_g, color_b, color_w)) {
+                break;
+            }
+        }
+    }
 }
 
-
-Clight::Clight(){
+Clight::Clight() {
 	_pILightDataCalcu[0] = new ErroFatal();
 	_pILightDataCalcu[1] = new BatteryCalcu();
 	_pILightDataCalcu[2] = new MutableBreath();
 	_pILightDataCalcu[3] = new Charging();
 	_pILightDataCalcu[4] = new ConstantLight();
 	_pCSerialport = new CSerialport();
-
 }
+
 Clight::~Clight() {
-	if (NULL != _pILightDataCalcu)
-	{
-		delete _pILightDataCalcu;
+	if (NULL != _pILightDataCalcu) {
+		delete[] _pILightDataCalcu;
 	}
-	if (NULL != _pCSerialport)
-	{
+	if (NULL != _pCSerialport) {
 		delete _pCSerialport;
+        _pCSerialport = NULL;
 	}
 }
 
-
-void Clight::update(EType type, double param , int R, int G, int B, int W)
-{
-	memset(_data, 0x00, sizeof(_data));
-	_pILightDataCalcu[type]->calc(_data, param, R, G, B, W);
-	_pCSerialport->send(_data);
+bool Clight::update(EType type, double param , int R, int G, int B, int W) {
+    memset(_data, 0x00, sizeof(_data));
+    _pILightDataCalcu[type]->calc(_data, param, R, G, B, W);
+    return _pCSerialport->send(_data, 512);
 }
 
-CSerialport::CSerialport(){
-	_hcom = NULL;
-}
+CSerialport::CSerialport() { }
 
 CSerialport::~CSerialport() {
-	CloseHandle(_hcom);
+    _hcom.flush();
+    _hcom.close();
 }
 
-void CSerialport::init(CONST WCHAR *LPCWSTR)
-{
-	_hcom = CreateFile(LPCWSTR, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (_hcom == INVALID_HANDLE_VALUE) 
-	{ 
-		LogError("The init of Dmx512 failed!");
+bool CSerialport::init(const std::string& com) {
+    boost::system::error_code ec;
+    _hcom.open(com, 250000, boost::asio::serial_port_base::parity(
+        boost::asio::serial_port_base::parity::none), boost::asio::serial_port_base::character_size(8), boost::asio::serial_port_base::flow_control(
+        boost::asio::serial_port_base::flow_control::none), boost::asio::serial_port_base::stop_bits(
+        boost::asio::serial_port_base::stop_bits::two), ec);
+    _hcom.setTimeout(std::chrono::microseconds(2000));
+	if (ec) {
+		LogError("The init of Dmx512 failed: " << ec.message());
+        return false;
 	} 
-	else
-	{
+	else {
 		LogInfo("The init of Dmx512 success!");
+        return true;
 	}
-	SetupComm(_hcom, 1024, 1024);
-	DCB dcb;
-	GetCommState(_hcom, &dcb);
-	dcb.BaudRate = 250000;
-	dcb.ByteSize = 8;
-	dcb.Parity = NOPARITY;
-	dcb.StopBits = 2;
-	SetCommState(_hcom, &dcb);
 }
 
-void CSerialport::send(const char *data)
-{
+bool CSerialport::send(const char *data, size_t size) {
 	DWORD dwWrittenLen = 0;
-	SetCommBreak(_hcom);	Sleep(10);
-	ClearCommBreak(_hcom);	Sleep(0.1);
-	WriteFile(_hcom, data, 512, &dwWrittenLen, NULL);
+	SetCommBreak(_hcom.port().native_handle());   SLEEP(10);
+	ClearCommBreak(_hcom.port().native_handle()); SLEEP(0.1);
+    boost::system::error_code ec;
+    _hcom.write(data, size, ec);
+    if (ec) {
+        LogError("Send command error: " << ec.message());
+        return false;
+    }
+    return true;
 }
 
-void ErroFatal::calc(char * data, double param, int R, int G, int B, int W)
-{
+void ErroFatal::calc(char * data, double param, int R, int G, int B, int W) {
 	_increment = _increment + 4;
 	int final_value = std::abs(_increment) * 2;
 	if (final_value > 255)
@@ -213,8 +185,7 @@ void ErroFatal::calc(char * data, double param, int R, int G, int B, int W)
 	}
 }
 
-void BatteryCalcu::calc(char * data, double param, int R, int G, int B, int W)
-{
+void BatteryCalcu::calc(char * data, double param, int R, int G, int B, int W) {
 	int red = 0xFF * (1 - param);
 	int green = 0xFF * param;
 	for (int i = CHANEL_RED; i <= 50; i = i + 4)
@@ -224,8 +195,7 @@ void BatteryCalcu::calc(char * data, double param, int R, int G, int B, int W)
 	}
 }
 
-void MutableBreath::calc(char * data, double param, int R, int G, int B, int W)
-{
+void MutableBreath::calc(char * data, double param, int R, int G, int B, int W) {
 	_increment = _increment + 4;
 	int final_value = std::abs(_increment) * 2;
 	if (final_value > 255)
@@ -241,8 +211,7 @@ void MutableBreath::calc(char * data, double param, int R, int G, int B, int W)
 	}
 }
 
-void ConstantLight::calc(char * data, double param, int R, int G, int B, int W)
-{
+void ConstantLight::calc(char * data, double param, int R, int G, int B, int W) {
 	for (int i = CHANEL_RED; i <= 50; i = i + 4)
 	{
 		data[i] = R;
@@ -252,8 +221,7 @@ void ConstantLight::calc(char * data, double param, int R, int G, int B, int W)
 	}
 }
 
-void Charging::calc(char * data, double param, int R, int G, int B, int W)
-{
+void Charging::calc(char * data, double param, int R, int G, int B, int W) {
 	/* Orange color is R:255 and B:165 */
 	_increment = _increment + 4;
 	int final_value = std::abs(_increment) * 2;

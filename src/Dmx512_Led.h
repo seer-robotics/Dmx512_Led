@@ -1,9 +1,9 @@
 #ifndef _DMX512_LED_H_
 #define _DMX512_LED_H_
 #include <robokit/core/rbk_core.h>
+#include <robokit/utils/serial_port.h>
 #include "message_odometer.pb.h"
 #include "message_battery.pb.h"
-#include <iostream>
 
 #define MAX_CALC_TYPE_NUM 10
 using namespace rbk;
@@ -20,7 +20,7 @@ class Dmx512_Led:public NPluginInterface
 	    void setSubscriberCallBack();
 		void messageDmx512_Led_OdometerCallBack(google::protobuf::Message* msg);
 		void messageDmx512_Led_BatteryCallBack(google::protobuf::Message* msg);
-		rbk::MutableParam<int> _comNum;
+		rbk::MutableParam<std::string> _com;
 		rbk::MutableParam<int> _color_r;
 		rbk::MutableParam<int> _color_g;
 		rbk::MutableParam<int> _color_b;
@@ -33,9 +33,6 @@ class Dmx512_Led:public NPluginInterface
 		rbk::protocol::Message_Battery m_Battery;
 		CSerialport * _pCSerialport;
 		Clight * _hx;
-		wchar_t * _pcom;
-		std::string _com;
-		std::string _comRaw;
 		rbk::utils::json _modelJson;
 		int is_stop_counts;
 		double bttery_percetage;
@@ -53,7 +50,7 @@ class Clight
 		enum EType { EErrofatal, EBattery, EMutableBreath, ECharging, EConstantLight};
 		Clight();
 		~Clight();
-		void update(EType type, double param, int R = 0, int G = 0, int B = 0, int W = 0);
+		bool update(EType type, double param, int R = 0, int G = 0, int B = 0, int W = 0);
 		CSerialport * _pCSerialport;
 	private:
 		ILightDataCalcu * _pILightDataCalcu[MAX_CALC_TYPE_NUM];
@@ -65,10 +62,10 @@ class CSerialport
 	public:
 		CSerialport();
 		~CSerialport();
-		void init(CONST WCHAR *LPCWSTR);
-		void send(const char *pdata);
+        bool init(const std::string& com);
+		bool send(const char *pdata, size_t);
 	private:
-		HANDLE _hcom;
+        rbk::utils::serialport::SyncSerial _hcom;
 };
 
 class ILightDataCalcu
