@@ -46,11 +46,26 @@ ENDIF()
 # ------
 IF(WIN32)
 	# windows
+	include(generate_product_version)
+	generate_product_version(
+        VersionFilesOutputVariable
+        NAME "${PROJECT_NAME}"
+        ICON ${RBK_PATH}/robokit.ico
+        VERSION_MAJOR ${${PROJ_NAME}_VERSION_MAJOR}
+        VERSION_MINOR ${${PROJ_NAME}_VERSION_MINOR}
+        VERSION_PATCH ${${PROJ_NAME}_VERSION_PATCH}
+        COMPANY_NAME ${ROBOTKIT_COMPANY_NAME}
+        ORIGINAL_FILENAME "[${ROBOTKIT_NAME}] ${PROJECT_NAME}"
+        INTERNAL_NAME "[${ROBOTKIT_NAME}] ${PROJECT_NAME}"
+        FILE_DESCRIPTION "[${ROBOTKIT_NAME}] ${PROJECT_NAME}"
+	)
+	
 	add_library(${PROJECT_NAME} SHARED
 			${SRCS}
 			${HEADERS}
 			${PROTO_SRCS}
-			${PROTO_HDRS})
+			${PROTO_HDRS}
+			${VersionFilesOutputVariable})
 	target_link_libraries(${PROJECT_NAME}
 			core
 			utils
