@@ -27,8 +27,8 @@ void Dmx512_Led::loadFromConfigFile() {
 	loadParam(_com, "DmxCom", "COM4", rbk::ParamGroup::Chassis, "The com of Dmx512_Led");
 	LogInfo("The com of Dmx512 is " << _com  << " !");
 	loadParam(_color_r, "DmxLedR", 0, 0, 255, rbk::ParamGroup::Chassis, "The R of Dmx512_Led");
-	loadParam(_color_g, "DmxLedG", 255, 0, 255, rbk::ParamGroup::Chassis, "The G of Dmx512_Led");
-	loadParam(_color_b, "DmxLedB", 0, 0, 255, rbk::ParamGroup::Chassis, "The B of Dmx512_Led");
+	loadParam(_color_g, "DmxLedG", 80, 0, 255, rbk::ParamGroup::Chassis, "The G of Dmx512_Led");
+	loadParam(_color_b, "DmxLedB", 164, 0, 255, rbk::ParamGroup::Chassis, "The B of Dmx512_Led");
 	loadParam(_color_w, "DmxLedW", 0, 0, 255, rbk::ParamGroup::Chassis, "The W of Dmx512_Led");
 	loadParam(isShowCharging, "isDmxLedShowCharging", true, rbk::ParamGroup::Chassis, "ShowCharging or not");
 	loadParam(isShowBattery, "isDmxLedShowBattery", true, rbk::ParamGroup::Chassis, "ShowBattery or not");
@@ -65,11 +65,13 @@ void Dmx512_Led::run() {
             getSubscriberData(m_Odometer);
             getSubscriberData(m_moveStatus);
             getSubscriberData(m_controller);
-            Clight::EType et = Clight::EConstantLight;
+            
+            Clight::EType et = isShowBattery ? Clight::EBattery : Clight::EConstantLight;
 
 			/*Defint a int arrary to add the color together,the param is set by user.
 			If use it to fix a certain color ,can redefine it before @setColor_RGBW*/
 			int RGBW[4] = { _color_r, _color_g, _color_b, _color_w };
+
             rbk::readLock l(_modelMutex);
             try {
 				/*	ErrorFatal logic order:
@@ -85,13 +87,13 @@ void Dmx512_Led::run() {
 				3.the times not reach 10
 				*/
                 else if (!m_Odometer.is_stop()) {
-                    if (is_stop_counts >= 10) {
+                    if (is_stop_counts >= 20) {
                         et = Clight::EMutableBreath;
 						MutableBreathCalculator * pMutableBreath = dynamic_cast<MutableBreathCalculator * >(_hx->getPointOfICalculator(et)); 
 						pMutableBreath->setColor_RGBW(RGBW);
                     }
                     else {
-                        is_stop_counts++;    //misoperation counter
+                        is_stop_counts++;
                     }
                 }
 
@@ -122,18 +124,29 @@ void Dmx512_Led::run() {
                     }
                     else if (m_Battery.percetage() < 0.3) {
                         et = Clight::EConstantLight;
+                        int RGBW[4] = { 255, 0, 0, 0 };
 						ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
 						pConstantLight->setColor_RGBW(RGBW);
                     }
                     else if (m_Odometer.is_stop() && isShowBattery) {
-                        is_stop_counts = 0;
                         et = Clight::EBattery;
 						BatteryCalculator * pbattery = dynamic_cast<BatteryCalculator *>(_hx->getPointOfICalculator(et));
 						pbattery->setBatteryPercent(m_Battery.percetage());
                     }
                     else {
                         et = Clight::EConstantLight;
+                        ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
+                        pConstantLight->setColor_RGBW(RGBW);
                     }
+                }
+                else {
+                    et = Clight::EConstantLight;
+                    ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
+                    pConstantLight->setColor_RGBW(RGBW);
+                }
+
+                if (m_Odometer.is_stop()) {
+                    is_stop_counts = 0;
                 }
             }
             catch (const std::exception& e) {
