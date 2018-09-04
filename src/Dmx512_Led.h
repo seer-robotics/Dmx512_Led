@@ -44,7 +44,7 @@ class Dmx512_Led:public NPluginInterface
 		Clight * _hx;
 		rbk::utils::json _modelJson;
         rbk::rwMutex _modelMutex;
-		int is_stop_counts;
+		uint32_t not_stop_counts;
 };
 
 class ICalculator;

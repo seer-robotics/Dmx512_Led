@@ -52,6 +52,8 @@ void Dmx512_Led::modelChangedSubscriber() {
 }
 
 void Dmx512_Led::run() {
+    static bool is_stop = true;
+
     while (true) {
         while (true) {
             SLEEP(2000);
@@ -66,6 +68,19 @@ void Dmx512_Led::run() {
             getSubscriberData(m_moveStatus);
             getSubscriberData(m_controller);
             
+            if (m_Odometer.is_stop()) {  // stop
+                not_stop_counts = 0;
+                is_stop = true;
+            }
+            else {       // not stop
+                if (not_stop_counts >= 20) {
+                    is_stop = false;
+                }
+                else {
+                    not_stop_counts++;
+                }
+            }
+
             Clight::EType et = isShowBattery ? Clight::EBattery : Clight::EConstantLight;
 
 			/*Defint a int arrary to add the color together,the param is set by user.
@@ -77,29 +92,13 @@ void Dmx512_Led::run() {
 				/*	ErrorFatal logic order:
 				1.Red breath light when regard the errornum > 0 or fatalnum > 0 as occur fatal or error
 				*/
-                if (rbk::ErrorCodes::Instance()->errorNum() > 0 || rbk::ErrorCodes::Instance()->fatalNum() > 0) {
+                if (rbk::ErrorCodes::Instance()->errorNum() > 0 || rbk::ErrorCodes::Instance()->fatalNum() > 0) { // 有错误
                     et = Clight::EErrofatal;
-                }
-
-				/*	Run logic order:
-				1.The chassis of encoder change or not
-				2.Regard the times of slight move >=10 as the chassis run  
-				3.the times not reach 10
-				*/
-                else if (!m_Odometer.is_stop()) {
-                    if (is_stop_counts >= 20) {
-                        et = Clight::EMutableBreath;
-						MutableBreathCalculator * pMutableBreath = dynamic_cast<MutableBreathCalculator * >(_hx->getPointOfICalculator(et)); 
-						pMutableBreath->setColor_RGBW(RGBW);
-                    }
-                    else {
-                        is_stop_counts++;
-                    }
                 }
 
                 // ========================== for ABB ==========================
                 // emc stop
-                else if (m_controller.emc()) {
+                else if (m_controller.emc()) { // 急停
                     et = Clight::EConstantLight;
                     int RGBW[4] = { 255, 0, 0, 0 };
                     ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
@@ -107,10 +106,21 @@ void Dmx512_Led::run() {
                 }
 
                 // blocked
-                else if (m_moveStatus.blocked()) {
+                else if (m_moveStatus.blocked()) { // 被阻挡
                     et = Clight::EErrofatal;
                 }
                 // =============================================================
+
+                /*	Run logic order:
+                1.The chassis of encoder change or not
+                2.Regard the times of slight move >=10 as the chassis run
+                3.the times not reach 10
+                */
+                else if (!is_stop) {  // 运动时
+                    et = Clight::EMutableBreath;
+                    MutableBreathCalculator * pMutableBreath = dynamic_cast<MutableBreathCalculator * >(_hx->getPointOfICalculator(et));
+                    pMutableBreath->setColor_RGBW(RGBW);
+                }
 
                 /*	Battery logic order:
 					1.Orange breath light when charging && param @isShowChargine is true
@@ -118,7 +128,7 @@ void Dmx512_Led::run() {
 					3.Red-Green constant light when the chassis is stop && param @isShowBattery is true
 					4.Constant light with color set by user 
 				*/ 
-                else if (_modelJson["chassis"]["batteryInfo"].get<uint32_t>() > 0) {
+                else if (_modelJson["chassis"]["batteryInfo"].get<uint32_t>() > 0) { // 静止时才有可能进到这里, 有电池信息
                     if (m_Battery.is_charging() && isShowCharging) {
                         et = Clight::ECharging;
                     }
@@ -128,7 +138,7 @@ void Dmx512_Led::run() {
 						ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
 						pConstantLight->setColor_RGBW(RGBW);
                     }
-                    else if (m_Odometer.is_stop() && isShowBattery) {
+                    else if (isShowBattery) {
                         et = Clight::EBattery;
 						BatteryCalculator * pbattery = dynamic_cast<BatteryCalculator *>(_hx->getPointOfICalculator(et));
 						pbattery->setBatteryPercent(m_Battery.percetage());
@@ -139,14 +149,10 @@ void Dmx512_Led::run() {
                         pConstantLight->setColor_RGBW(RGBW);
                     }
                 }
-                else {
+                else { // 其他情况, 静止时可能进
                     et = Clight::EConstantLight;
                     ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
                     pConstantLight->setColor_RGBW(RGBW);
-                }
-
-                if (m_Odometer.is_stop()) {
-                    is_stop_counts = 0;
                 }
             }
             catch (const std::exception& e) {
