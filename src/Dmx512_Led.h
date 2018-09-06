@@ -60,7 +60,7 @@ class Clight
 		ICalculator *  getPointOfICalculator(EType type) { return _pICalculator[type]; }
 	private:
 		ICalculator * _pICalculator[MAX_CALC_TYPE_NUM];
-		char _data[512];
+		char _data[150];
 };
 
 class CSerialport

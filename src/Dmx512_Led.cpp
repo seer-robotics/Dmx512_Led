@@ -62,7 +62,7 @@ void Dmx512_Led::run() {
             }
         }
         while (true) {
-            SLEEP(20);
+            SLEEP(10);
             getSubscriberData(m_Battery); 
             getSubscriberData(m_Odometer);
             getSubscriberData(m_moveStatus);
@@ -198,7 +198,7 @@ Clight::~Clight() {
 bool Clight::update(EType type) {
     memset(_data, 0x00, sizeof(_data));
     _pICalculator[type]->calc(_data);
-    return _pCSerialport->send(_data, 512);
+    return _pCSerialport->send(_data, 150);
 }
 
 CSerialport::CSerialport() { }
@@ -260,7 +260,7 @@ bool CSerialport::send(const char *data, size_t size) {
 * @return None
 */
 void ErroFatalCalculator::calc(char * data) {
-	_increment = _increment + 4;
+	_increment = _increment + 2;
 	int final_value = std::abs(_increment) * 2;
 	if (final_value > 255)
 	{
@@ -295,7 +295,7 @@ void BatteryCalculator::calc(char * data) {
 * @return None
 */
 void MutableBreathCalculator::calc(char * data) {
-	_increment = _increment + 4;
+	_increment = _increment + 2;
 	int final_value = std::abs(_increment) * 2;
 	if (final_value > 255)
 	{
@@ -334,7 +334,7 @@ void ConstantLightCalculator::calc(char * data) {
 */
 void ChargingCalculator::calc(char * data) {
 	/* Orange color is R:255 and B:165 */
-	_increment = _increment + 4;
+	_increment = _increment + 2;
 	int final_value = std::abs(_increment) * 2;
 	if (final_value > 255)
 	{
