@@ -134,7 +134,7 @@ void Dmx512_Led::run() {
                     }
                     else if (m_Battery.percetage() < 0.3) {
                         et = Clight::EConstantLight;
-                        int RGBW[4] = { 255, 0, 0, 0 };
+                        int RGBW[4] = { 200, 0, 0, 0 };
 						ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
 						pConstantLight->setColor_RGBW(RGBW);
                     }
