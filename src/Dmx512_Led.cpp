@@ -132,7 +132,7 @@ void Dmx512_Led::run() {
                     if (m_Battery.is_charging() && isShowCharging) {
                         et = Clight::ECharging;
                     }
-                    else if (m_Battery.percetage() < 0.3) {
+                    else if (m_Battery.percetage() < 0.2) {
                         et = Clight::EConstantLight;
                         int RGBW[4] = { 200, 0, 0, 0 };
 						ConstantLightCalculator * pConstantLight = dynamic_cast<ConstantLightCalculator *>(_hx->getPointOfICalculator(et));
