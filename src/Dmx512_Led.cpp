@@ -217,6 +217,7 @@ CSerialport::~CSerialport() {
 * @retval -true Success -false Fail
 */
 bool CSerialport::init(const std::string& com) {
+    static bool has_error = false;
     boost::system::error_code ec;
     _hcom.open(com, 250000, boost::asio::serial_port_base::parity(
         boost::asio::serial_port_base::parity::none), boost::asio::serial_port_base::character_size(8), boost::asio::serial_port_base::flow_control(
@@ -224,11 +225,15 @@ bool CSerialport::init(const std::string& com) {
         boost::asio::serial_port_base::stop_bits::two), ec);
     _hcom.setTimeout(std::chrono::microseconds(2000));
 	if (ec) {
-		LogError("The init of Dmx512 failed: " << ec.message());
+        if (!has_error) {
+            LogError("The init of Dmx512 failed: " << ec.message());
+            has_error = true;
+        }
         return false;
 	} 
 	else {
 		LogInfo("The init of Dmx512 success!");
+        has_error = false;
         return true;
 	}
 }
