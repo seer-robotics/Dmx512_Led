@@ -47,7 +47,7 @@ void Dmx512_Led::modelChangedSubscriber() {
     rbk::ThreadPool::Instance()->schedule([this]() {
         rbk::writeLock l(this->_modelMutex);
         this->_modelJson = rbk::chasis::Model::Instance()->getJson();
-        LogInfo(formatLog("Text", "model updated"));
+        LogInfo(formatLogText("model updated"));
     });
 }
 
